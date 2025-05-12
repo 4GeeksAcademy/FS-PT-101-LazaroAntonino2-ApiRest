@@ -115,11 +115,11 @@ def get_users_profile():
 # GET SINGLE USER PROFILE ----->
 @app.route('/users/<int:user_id>/profile', methods=['GET'])
 def get_single_user_profile(user_id):
-    stmt = select(User).where(User.id == user_id)
+    stmt = select(Profile).where(Profile.user_id == user_id)
     user = db.session.execute(stmt).scalar_one_or_none()
     if user is None:
         return jsonify({'error':'User not found'}), 404
-    return jsonify(user.profile.serialize()),200
+    return jsonify(user.serialize()),200
 
 
 # PUT SINGLE USER PROFILE ------>
@@ -177,15 +177,12 @@ def create_user_profile(user_id):
     db.session.commit()
     return jsonify(user.profile.serialize()), 200
 
-
 # GET ALL CARS
 @app.route('/cars', methods=['GET'])   
 def get_cars():
     stmt = select(Car)
     cars = db.session.execute(stmt).scalars().all()
     return jsonify([car.serialize() for car in cars]), 200
-
-
 
 #GET SINGLE CAR
 @app.route('/cars/<int:car_id>', methods=['GET'])
@@ -195,8 +192,6 @@ def get_single_car(car_id):
     if car is None:
         return jsonify({'error':'car not found'}), 404
     return jsonify(car.serialize()),200
-
-
 
 # POST CAR
 @app.route('/cars', methods=['POST'])
@@ -315,9 +310,6 @@ def update_favourite(fav_id):
 
     db.session.commit()
     return jsonify(favourite.serialize()), 200
-
-
-
 
 # DELETE FAVOURITE
 @app.route('/favourites/<int:favourite_id>', methods=['DELETE'])
