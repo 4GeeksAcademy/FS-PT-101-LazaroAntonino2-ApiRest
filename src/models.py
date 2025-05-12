@@ -15,7 +15,6 @@ class User(db.Model):
 
     # Relaciones
     profile: Mapped[Optional[Profile]] = relationship('Profile', back_populates='user', uselist=False)
-    cars: Mapped[List[Car]] = relationship('Car', back_populates='user')
     favourites: Mapped[List[Favourite]] = relationship('Favourite', back_populates='user')
 
     def serialize(self):
@@ -55,9 +54,7 @@ class Car(db.Model):
     model: Mapped[str] = mapped_column(String(20), nullable=False)
     year: Mapped[int] = mapped_column(nullable=False)
     name: Mapped[str] = mapped_column(String(20), nullable=False)
-    user_id: Mapped[Optional[int]] = mapped_column(ForeignKey('users.id'), nullable=True)
 
-    user: Mapped[User] = relationship('User', back_populates='cars')
     favourites: Mapped[List[Favourite]] = relationship('Favourite', back_populates='car')
 
     def serialize(self):
