@@ -9,7 +9,7 @@ from flask_swagger import swagger
 from flask_cors import CORS
 from utils import APIException, generate_sitemap
 from admin import setup_admin
-from models import db, User, Profile, Car
+from models import db, User, Profile, Car, Favourite
 #from models import Person
 
 app = Flask(__name__)
@@ -178,39 +178,157 @@ def create_user_profile(user_id):
     return jsonify(user.profile.serialize()), 200
 
 
+# GET ALL CARS
 @app.route('/cars', methods=['GET'])   
 def get_cars():
     stmt = select(Car)
-    users = db.session.execute(stmt).scalars().all()
-    return jsonify([user.serialize() for user in users]), 200
+    cars = db.session.execute(stmt).scalars().all()
+    return jsonify([car.serialize() for car in cars]), 200
+
+
+
+#GET SINGLE CAR
+@app.route('/cars/<int:car_id>', methods=['GET'])
+def get_single_car(car_id):
+    stmt = select(Car).where(Car.id == car_id)
+    car = db.session.execute(stmt).scalar_one_or_none()
+    if car is None:
+        return jsonify({'error':'car not found'}), 404
+    return jsonify(car.serialize()),200
+
 
 
 # POST CAR
-@app.route('/users/<int:user_id>/cars', methods=['POST'])
-def create_car(user_id):
+@app.route('/cars', methods=['POST'])
+def create_car():
     data = request.get_json()
-    
     required_fields = ['model', 'year', 'name']
+
     if not data or any(field not in data for field in required_fields):
         return jsonify({'error': 'Missing data'}), 400
 
-    # Comprobar que el usuario exista
-    user = db.session.get(User, user_id)
-    if not user:
-        return jsonify({'error': 'User not found'}), 404
+    user_id = data.get('user_id')  # Puede venir o no
 
-    # Crear coche asociado al usuario
+    # Si viene user_id, validarlo
+    if user_id:
+        user = db.session.get(User, user_id)
+        if not user:
+            return jsonify({'error': 'User not found'}), 404
+
     new_car = Car(
         name=data['name'],
         year=data['year'],
         model=data['model'],
-        user_id=user_id
+        user_id=user_id  # Esto puede ser None
     )
 
     db.session.add(new_car)
     db.session.commit()
 
     return jsonify(new_car.serialize()), 201
+
+
+#DELETE CAR
+@app.route('/cars/<int:car_id>', methods=['DELETE'])
+def delete_car(car_id):
+    stmt = select(Car).where(Car.id == car_id)
+    car = db.session.execute(stmt).scalar_one_or_none()
+    if car is None:
+        return jsonify({'error':'car not found'}), 404
+    db.session.delete(car)
+    db.session.commit()
+    return jsonify({'message':'user deleted'}),200
+
+
+
+# PUT SINGLE CAR ------>
+@app.route('/cars/<int:car_id>', methods=['PUT'])
+def update_car(car_id):
+    data = request.get_json()
+    stmt = select(Car).where(Car.id == car_id)
+    car = db.session.execute(stmt).scalar_one_or_none()
+    
+    if car is None:
+        return jsonify({'error':'User not found'}), 404    
+
+    car.model = data.get('model',car.model)
+    car.year = data.get('year',car.year)
+    car.name = data.get('name',car.name)
+    db.session.commit()
+    return jsonify(car.serialize()),200
+
+
+#GET ALL FAVOURITES
+@app.route('/favourites', methods=['GET'])   
+def get_favourites():
+    stmt = select(Favourite)
+    favourites = db.session.execute(stmt).scalars().all()
+    return jsonify([favourite.serialize() for favourite in favourites]), 200
+
+
+#GET SINGLE FAVOURITE
+@app.route('/favourites/<int:favourite_id>', methods=['GET'])
+def get_single_favourite(favourite_id):
+    stmt = select(Favourite).where(Favourite.id == favourite_id)
+    favourite = db.session.execute(stmt).scalar_one_or_none()
+    if favourite is None:
+        return jsonify({'error':'Favourite not found'}), 404
+    return jsonify(favourite.serialize()),200
+
+#POST FAVOURITES
+@app.route('/favourites/<int:user_id>/<int:car_id>', methods=['POST'])
+def add_favourite(user_id, car_id):
+    user = db.session.get(User, user_id)
+    car = db.session.get(Car, car_id)
+
+    if not user or not car:
+        return jsonify({'error': 'User or Car not found'}), 404
+
+    # Comprobar si ya está marcado como favorito
+    existing = db.session.execute(
+        select(Favourite).where(Favourite.user_id == user_id, Favourite.car_id == car_id)
+    ).scalar_one_or_none()
+
+    if existing:
+        return jsonify({'error': 'This car is already in favourites'}), 400
+
+    favourite = Favourite(user_id=user_id, car_id=car_id)
+    db.session.add(favourite)
+    db.session.commit()
+
+#PUT FAVOURITES
+@app.route('/favourites/<int:fav_id>', methods=['PUT'])
+def update_favourite(fav_id):
+    data = request.get_json()
+    favourite = db.session.get(Favourite, fav_id)
+
+    if favourite is None:
+        return jsonify({'error': 'Favourite not found'}), 404
+
+    new_user_id = data.get('user_id')
+    new_car_id = data.get('car_id')
+
+    if new_user_id:
+        favourite.user_id = new_user_id
+    if new_car_id:
+        favourite.car_id = new_car_id
+
+    db.session.commit()
+    return jsonify(favourite.serialize()), 200
+
+
+
+
+# DELETE FAVOURITE
+@app.route('/favourites/<int:favourite_id>', methods=['DELETE'])
+def delete_favourite(favourite_id):
+    stmt = select(Favourite).where(Favourite.id == favourite_id)
+    favourite = db.session.execute(stmt).scalar_one_or_none()
+    if favourite is None:
+        return jsonify({'error':'favourite not found'}), 404
+    db.session.delete(favourite)
+    db.session.commit()
+    return jsonify({'message':'favourite deleted'}),200
 
 # this only runs if `$ python src/app.py` is executed
 if __name__ == '__main__':

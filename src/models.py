@@ -24,7 +24,12 @@ class User(db.Model):
             "email": self.email,
             "age": self.age,
             "profile": self.profile.serialize() if self.profile else None,
-            "favourites": [fav.serialize() for fav in self.favourites]
+            "favourites": [
+            {
+                "id": fav.car.id,
+                "car": fav.car.name
+            } for fav in self.favourites if fav.car]
+
             # No serializar la contraseña
         }
 
@@ -50,7 +55,7 @@ class Car(db.Model):
     model: Mapped[str] = mapped_column(String(20), nullable=False)
     year: Mapped[int] = mapped_column(nullable=False)
     name: Mapped[str] = mapped_column(String(20), nullable=False)
-    user_id: Mapped[int] = mapped_column(ForeignKey('users.id'))
+    user_id: Mapped[Optional[int]] = mapped_column(ForeignKey('users.id'), nullable=True)
 
     user: Mapped[User] = relationship('User', back_populates='cars')
     favourites: Mapped[List[Favourite]] = relationship('Favourite', back_populates='car')
@@ -61,14 +66,20 @@ class Car(db.Model):
             'model': self.model,
             'year': self.year,
             'name': self.name,
-            'user_id': self.user_id
-        }
+            'favourite_of': [
+                {
+                    'id': fav.user.id,
+                    'email': fav.user.email
+                } for fav in self.favourites if fav.user
+            ]
+    }
+
 
 class Favourite(db.Model):
     __tablename__ = 'favourites'
     id: Mapped[int] = mapped_column(primary_key=True)
-    user_id: Mapped[int] = mapped_column(ForeignKey('users.id'))
-    car_id: Mapped[int] = mapped_column(ForeignKey('cars.id'))
+    user_id: Mapped[int] = mapped_column(ForeignKey('users.id'),nullable=False)
+    car_id: Mapped[int] = mapped_column(ForeignKey('cars.id'),nullable=False)
 
     user: Mapped[User] = relationship('User', back_populates='favourites')
     car: Mapped[Car] = relationship('Car', back_populates='favourites')
@@ -76,8 +87,15 @@ class Favourite(db.Model):
     def serialize(self):
         return {
             'id': self.id,
-            'user_id': self.user_id,
-            'car_id': self.car_id
-        }
+            'user': {
+                'email': self.user.email,
+                'id': self.user.id
+            } if self.user else None,
+            'car': {
+                'name': self.car.name,
+                'id': self.car.id
+            } if self.car else None,
+    }
+
 
 
